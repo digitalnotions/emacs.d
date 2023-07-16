@@ -1,2 +1,3 @@
-# emacs.d
-Emacs Dotfiles
+# Emacs Dotfiles
+
+This repository contains my very basic Emacs dotfiles.
