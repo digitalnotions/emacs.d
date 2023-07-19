@@ -59,7 +59,8 @@
 ;; Cleanup display
 ;; ----------------------------------------
 (setq inhibit-startup-message t     ; I don't need to see the startup message
-      warning-minimum-level :error) ; Don't show warnings all the time
+      warning-minimum-level :error  ; Don't show warnings all the time
+      native-comp-async-report-warnings-errors nil) ; Don't interrupt with native compilation warnings
 (scroll-bar-mode -1)                ; Disable visible scrollbar
 (tool-bar-mode -1)                  ; Disable the toolbar
 (tooltip-mode -1)                   ; Disable tooltipsn
@@ -148,7 +149,13 @@
 
 ;; Set directories off of the mw/basedir
 (setq user-emacs-directory (expand-file-name ".cache/emacs" mw/basedir)
-      url-history-file (expand-file-name "url/history" user-emacs-directory))
+      url-history-file (expand-file-name "url/history" user-emacs-directory)
+      ;; Setup backups
+      backup-directory-alist '(("." . "~/.config/emacs/backups"))
+      delete-old-versions t
+      version-control t
+      vc-make-backup-files t
+      auto-save-file-name-transforms '((".*" "~/.config/emacs/auto-save-list/" t)))
 
 ;; Keep customization settings in a temporary file
 (setq custom-file
@@ -196,7 +203,7 @@
   ;; Configure otherwise
   (set-face-attribute 'default nil
 		      :font "FiraMono Nerd Font:antialias=subpixel"
-		      :height 140))
+		      :height 150))
 
 ;; Let's make the window a decent size if we're on high resolution
 ;; This must be done after fonts are configured so that the
@@ -315,8 +322,8 @@
   ;; More convenient directory navigation commands
   :bind (:map vertico-map
 	      ("RET" . vertico-directory-enter)
-	      ("DEL" . vertico-directory-delete-word) ; more like ido
-	      ("M-DEL" . vertico-directory-delete-char))
+	      ("DEL" . vertico-directory-delete-char) ; more like ido
+	      ("C-DEL" . vertico-directory-delete-char))
   ;; Tidy shadowed file names
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
 
@@ -409,13 +416,52 @@
 	 ("C-c n i" . org-roam-node-insert)
  	 :map org-roam-dailies-map
 	 ("Y" . org-roam-dailies-capture-yesterday)
-	 ("T" . org-roam-dailies-capture-tomorrow))
+	 ("T" . org-roam-dailies-capture-tomorrow)
+  	 ("d" . mw/goto-todays-daily))
+
   :bind-keymap
   ("C-c n d" . org-roam-dailies-map)
+  :init
+  ;; Define dailies filename and header
+  (setq mw/daily-note-filename "%<%Y-%m-%d>.org"
+	mw/daily-note-header "#+title: %<%Y-%m-%d>\n#+filetags: Journal\n\n[[roam:%<%Y-%B>]]\n\nToday is a %<%A> and is day %<%j> of %<%Y>\n\n")
   :config
   (require 'org-roam-dailies) ;; ensure keymap is available
   (setq org-roam-completion-everywhere t)
-  (org-roam-db-autosync-mode))
+  (org-roam-db-autosync-mode)
+  ;; Define goto today with a default capture template
+  (defun mw/goto-todays-daily ()
+    "Goto today's daily note using the default template file name."
+    (interactive)
+    (org-roam-dailies-goto-today "d"))
+  ;; Define org-roam daily templates
+  (setq org-roam-dailies-capture-templates
+	`(("d" "default" entry
+	   "* %?"
+	   :if-new (file+head ,mw/daily-note-filename
+			      ,mw/daily-note-header)
+	   :empty-lines-before 1)
+	  ("l" "log entry" entry
+	   "* %<%H:%M> - %?"
+	   :if-new (file+head+olp ,mw/daily-note-filename
+				  ,mw/daily-note-header
+				  ("Log"))
+	   :empty-lines-before 1)
+	  ("j" "journal" entry
+	   "* %<%H:%M> - Journal  :journal:\n\n%?\n\n"
+	   :if-new (file+head+olp ,mw/daily-note-filename
+				  ,mw/daily-note-header
+				  ("Journal"))
+	   :empty-lines-before 1)
+	  ("m" "meeting" entry
+	   "* %<%H:%M> - %^{Meeting Title}  :meetings:\n\n%?\n\n"
+	   :if-new (file+head+olp ,mw/daily-note-filename
+				  ,mw/daily-note-header
+				  ("Meetings"))
+	   :empty-lines-before 1)
+	  ))
+
+  )
 
 ;; ----------------------------------------
 ;; Configure Org Mode
@@ -517,41 +563,41 @@
 ;; ----------------------------------------
 
 ;; https://lists.gnu.org/archive/html/help-gnu-emacs/2015-08/msg00339.html
-(with-eval-after-load "window"
-  (defcustom split-window-below nil
-    "If non-nil, vertical splits produce new windows below."
-    :group 'windows
-    :type 'boolean)
+;; (with-eval-after-load "window"
+;;   (defcustom split-window-below nil
+;;     "If non-nil, vertical splits produce new windows below."
+;;     :group 'windows
+;;     :type 'boolean)
 
-  (defcustom split-window-right nil
-    "If non-nil, horizontal splits produce new windows to the right."
-    :group 'windows
-    :type 'boolean)
+;;   (defcustom split-window-right nil
+;;     "If non-nil, horizontal splits produce new windows to the right."
+;;     :group 'windows
+;;     :type 'boolean)
 
-  (fmakunbound #'split-window-sensibly)
+;;   (fmakunbound #'split-window-sensibly)
 
-  (defun split-window-sensibly
-      (&optional window)
-    (setq window (or window (selected-window)))
-    (or (and (window-splittable-p window t)
-             ;; Split window horizontally.
-             (split-window window nil (if split-window-right 'left  'right)))
-        (and (window-splittable-p window)
-             ;; Split window vertically.
-             (split-window window nil (if split-window-below 'above 'below)))
-        (and (eq window (frame-root-window (window-frame window)))
-             (not (window-minibuffer-p window))
-             ;; If WINDOW is the only window on its frame and is not the
-             ;; minibuffer window, try to split it horizontally disregarding the
-             ;; value of `split-width-threshold'.
-             (let ((split-width-threshold 0))
-               (when (window-splittable-p window t)
-                 (split-window window nil (if split-window-right
-                                              'left
-                                            'right))))))))
+;;   (defun split-window-sensibly
+;;       (&optional window)
+;;     (setq window (or window (selected-window)))
+;;     (or (and (window-splittable-p window t)
+;;              ;; Split window horizontally.
+;;              (split-window window nil (if split-window-right 'left  'right)))
+;;         (and (window-splittable-p window)
+;;              ;; Split window vertically.
+;;              (split-window window nil (if split-window-below 'above 'below)))
+;;         (and (eq window (frame-root-window (window-frame window)))
+;;              (not (window-minibuffer-p window))
+;;              ;; If WINDOW is the only window on its frame and is not the
+;;              ;; minibuffer window, try to split it horizontally disregarding the
+;;              ;; value of `split-width-threshold'.
+;;              (let ((split-width-threshold 0))
+;;                (when (window-splittable-p window t)
+;;                  (split-window window nil (if split-window-right
+;;                                               'left
+;;                                             'right))))))))
 
-(setq-default split-height-threshold  4
-              split-width-threshold   120) ; the reasonable limit for horizontal splits
+;; (setq-default split-height-threshold  4
+;;               split-width-threshold   120) ; the reasonable limit for horizontal splits
 
 (use-package nix-mode
   :ensure t
