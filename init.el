@@ -51,7 +51,7 @@
 ;; ----------------------------------------
 ;; Lets get some keybindings out of the way
 (global-set-key (kbd "<f3>") 'find-file)
-(global-set-key (kbd "<f4>") 'consult-buffer)
+(global-set-key (kbd "<f4>") 'ido-switch-buffer)
 ;;(global-set-key (kbd "<S-return>") (quote toggle-frame-fullscreen))
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
@@ -172,10 +172,12 @@
       display-time-default-load-average nil)
 
 ;; Enable mode diminishing by hiding pesky minor modes
-(use-package diminish)
+(use-package diminish
+  :ensure t)
 
 ;; Turn on doom modeline and configure it
 (use-package doom-modeline
+  :ensure t
   :init
   (doom-modeline-mode 1)
   (if (eq system-type 'darwin)
