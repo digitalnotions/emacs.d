@@ -149,6 +149,7 @@
 
 ;; Set directories off of the mw/basedir
 (setq user-emacs-directory (expand-file-name ".cache/emacs" mw/basedir)
+      user-package-directory (expand-file-name ".emacs/packages" mw/basedir)
       url-history-file (expand-file-name "url/history" user-emacs-directory)
       ;; Setup backups
       backup-directory-alist '(("." . "~/.config/emacs/backups"))
