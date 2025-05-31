@@ -331,40 +331,40 @@
 
 
 
-(use-package corfu
-  :ensure t
-  :custom
-  (corfu-cycle t)                      ; Allows cycling through candidates
-  (corfu-auto t)                       ; Enable auto completion
-  (corfu-auto-prefix 2)                ; Enable auto completion
-  (corfu-auto-delay 0.2)               ; Enable auto completion
-  (corfu-popupinfo-delay '(0.5 . 0.2))
-  (corfu-quit-at-boundary 'separator)
-  (corfu-preview-current 'insert)      ; Do not preview current candidate
-  (corfu-preselect-first nil)
+;; (use-package corfu
+;;   :ensure t
+;;   :custom
+;;   (corfu-cycle t)                      ; Allows cycling through candidates
+;;   (corfu-auto t)                       ; Enable auto completion
+;;   (corfu-auto-prefix 2)                ; Enable auto completion
+;;   (corfu-auto-delay 0.2)               ; Enable auto completion
+;;   (corfu-popupinfo-delay '(0.5 . 0.2))
+;;   (corfu-quit-at-boundary 'separator)
+;;   (corfu-preview-current 'insert)      ; Do not preview current candidate
+;;   (corfu-preselect-first nil)
 
-  :bind (:map corfu-map
-         ("M-SPC"      . corfu-insert-separator)
-         ;; ("RET"        . nil)
-         ;; ("<escape>"   . corfu-quit)
-         ;; ("S-<return>" . corfu-insert)
-         ;; ("TAB"        . corfu-next)
-         ;; ([tab]        . corfu-next)
-         ;; ("S-TAB"      . corfu-prevous)
-	 ;; ([backtab]    . corfu-previous)
-	 )
+;;   :bind (:map corfu-map
+;;          ("M-SPC"      . corfu-insert-separator)
+;;          ;; ("RET"        . nil)
+;;          ;; ("<escape>"   . corfu-quit)
+;;          ;; ("S-<return>" . corfu-insert)
+;;          ;; ("TAB"        . corfu-next)
+;;          ;; ([tab]        . corfu-next)
+;;          ;; ("S-TAB"      . corfu-prevous)
+;; 	 ;; ([backtab]    . corfu-previous)
+;; 	 )
 
-  :init
-  (global-corfu-mode)
-  (corfu-history-mode)
-  (corfu-popupinfo-mode)
+;;   :init
+;;   (global-corfu-mode)
+;;   (corfu-history-mode)
+;;   (corfu-popupinfo-mode)
 
-  :config
-  (add-hook 'eshell-mode-hook
-	    (lambda () (setq-local corfu-quit-at-boundary t
-				   corfu-quit-no-match t
-				   corfu-auto nil)
-	      (corfu-mode))))
+;;   :config
+;;   (add-hook 'eshell-mode-hook
+;; 	    (lambda () (setq-local corfu-quit-at-boundary t
+;; 				   corfu-quit-no-match t
+;; 				   corfu-auto nil)
+;; 	      (corfu-mode))))
 
 ;; ----------------------------------------
 ;; Attempt to sort out Markdown mode
@@ -426,7 +426,9 @@
   :init
   ;; Define dailies filename and header
   (setq mw/daily-note-filename "%<%Y-%m-%d>.org"
-	mw/daily-note-header "#+title: %<%Y-%m-%d>\n#+filetags: Journal\n\n[[roam:%<%Y-%B>]]\n\nToday is a %<%A> and is day %<%j> of %<%Y>\n\n")
+	mw/daily-note-header "#+title: %<%Y-%m-%d>\n#+filetags: Journal\n\n[[roam:%<%Y-%B>]]\n\nToday is a %<%A> and is day %<%j> of %<%Y>\n\n"
+	mw/accomplishment-note-filename "Accomplishments-%<%Y>.org"
+	mw/accomplishment-note-header "#+title: %<%Y> Accomplishments\n#+filetags: accomplishments\n\n")
   :config
   (require 'org-roam-dailies) ;; ensure keymap is available
   (setq org-roam-completion-everywhere t)
@@ -456,11 +458,18 @@
 				  ("Journal"))
 	   :empty-lines-before 1)
 	  ("m" "meeting" entry
-	   "* %<%H:%M> - %^{Meeting Title}  :meetings:\n\n%?\n\n"
+	   "* %<%H:%M> - %^{Meeting Title} (%<%d-%b-%Y>) :meetings:\n\n%?\n\n"
 	   :if-new (file+head+olp ,mw/daily-note-filename
 				  ,mw/daily-note-header
 				  ("Meetings"))
 	   :empty-lines-before 1)
+	  ("a" "accomplishment" entry
+	   "* %<%B %e> - %^{Accomplishment Description}\n\n%?\n\n"
+	   :if-new (file+head ,mw/accomplishment-note-filename
+			      ,mw/accomplishment-note-header)
+	   :empty-lines-before 1
+	   :prepend t)
+
 	  ))
 
   )
@@ -486,8 +495,9 @@
   (setq org-directory (expand-file-name "org_files/" mw/orgdir))
   (setq org-default-notes-file (expand-file-name "refile.org" org-directory))
   (setq org-agenda-files (list org-default-notes-file
-				(expand-file-name "work/" org-directory)
-				(expand-file-name "personal/" org-directory)))
+			       (expand-file-name "work/" org-directory)
+			       (expand-file-name "work/notes/" org-directory)
+			       (expand-file-name "personal/" org-directory)))
   (setq org-src-fontify-natively t)
   ;; Lets setup our basic keybindings
   (global-set-key (kbd "C-c c") 'org-capture)
