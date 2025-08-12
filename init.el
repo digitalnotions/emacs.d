@@ -1,24 +1,16 @@
-;; init.el -- Emacs Initialization File
+;; init.el -- mwood's Emacs Initialization File
 
-;; Author: Mark Wood <mark@digitalnotions.net>
+;; Author: Mark Wood <mark@markandkc.net>
 
 ;;; Commentary:
 ;;
 ;; This should startup Emacs with the correct theme and mainly orgmode configured in a way
 ;; that makes sense for my workflow
-;;
-
-;; Inspired by the following generous people who share their dotfiles:
-;;   Mike Hamrick - https://gitlab.com/spudlyo/dotfiles/-/blob/master/emacs/.emacs.d/init.el
-;; Temp stuff
-;; (fset 'yes-or-no-p 'y-or-n-p)
-;; (add-to-list 'default-frame-alist '(font . "InconsolataGo NF-12"))
-;; (global-set-key (kbd "<S-return>") (quote toggle-frame-fullscreen))
 
 ;; ----------------------------------------
 ;; Startup Performance
 ;; ----------------------------------------
-;; Make starup faster by reducing the frequecy of garbage collection
+;; Make starup faster by reducing the frequency of garbage collection
 ;; and then use a hook to measure startup time.
 
 ;; The default is 800 kilobytes. Measured in bytes.
@@ -27,7 +19,7 @@
 
 ;; Profile emacs startup
 (add-hook 'emacs-startup-hook
-	  (lambda ()
+  (lambda ()
 	    (message "*** Emacs loaded in %s with %d garbage collections."
 		     (format "%.2f seconds"
 			     (float-time
@@ -51,45 +43,73 @@
 ;; ----------------------------------------
 ;; Lets get some keybindings out of the way
 (global-set-key (kbd "<f3>") 'find-file)
-(global-set-key (kbd "<f4>") 'ido-switch-buffer)
-;;(global-set-key (kbd "<S-return>") (quote toggle-frame-fullscreen))
+(global-set-key (kbd "<f4>") 'switch-to-buffer)
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
-;; ----------------------------------------
-;; Cleanup display
-;; ----------------------------------------
-(setq inhibit-startup-message t     ; I don't need to see the startup message
-      warning-minimum-level :error  ; Don't show warnings all the time
-      native-comp-async-report-warnings-errors nil) ; Don't interrupt with native compilation warnings
-(scroll-bar-mode -1)                ; Disable visible scrollbar
-(tool-bar-mode -1)                  ; Disable the toolbar
-(tooltip-mode -1)                   ; Disable tooltipsn
-(set-fringe-mode 10)                ; Give some breathing room
-(fset 'yes-or-no-p 'y-or-n-p)       ; I don't want to type "yes" or "no" out fully
-(visual-line-mode 1)                ; Enable visual line mode globally
+;; And cleanup the window a bit
+(setq inhibit-startup-message t)
+(scroll-bar-mode -1)   ; Disable visible scrollbar
+(tool-bar-mode -1)     ; Disable the toolbar
+(tooltip-mode -1)      ; Disable tool tips
+(set-fringe-mode 10)   ; Give some breathing room
+(fset 'yes-or-no-p 'y-or-n-p)
 
-
-;; ----------------------------------------
-;; Fix MacOS Quirks
-;; ----------------------------------------
+;; Fix some weird keyboard stuff or MacOS
 (when (eq system-type 'darwin)
-  ;; Fix some weird keyboard stuff or MacOS
   (global-set-key [home] 'move-beginning-of-line)
-  (global-set-key [end] 'move-end-of-line)
-  ;; On MacOS, use Firefox to open links
-  (setq browse-url-browser-function #'browse-url-firefox)
-  ;; Make dired actually list things in an easy to read format
+  (global-set-key [end] 'move-end-of-line))
+
+;; Make dired actually list thing in an easy to read format
+(when (eq system-type 'darwin)
   (setq dired-listing-switches "-laGh"
 	dired-use-ls-dired nil))
 
-
-;; ----------------------------------------
-;; Basic preferences
-;; ----------------------------------------
 ;; Allow typing with selection to delete selction
 (delete-selection-mode 1)
+
+;; Fix the excessive scroll speed in windows
+(when (eq system-type 'windows-nt)
+  (setq mouse-wheel-scroll-amount '(1 ((shift) . 1) ((meta))((control) . text-scale)))
+  (setq mouse-wheel-progressive-speed nil))
+
 ;; Avoid errors about the coding system by setting everything to UTF-8
 (set-default-coding-systems 'utf-8)
+
+;; Make all files use visual line mode
+(global-visual-line-mode 1)
+
+;; ----------------------------------------
+;; Keep .emacs.d directory clean
+;; ----------------------------------------
+;; Set a base directory variable, and set it to nil to ensure we get an
+;;   error if we don't specifically define it by environment.
+(defvar mw/basedir nil
+  "The base directory for all emacs config and org mode files")
+
+;; On Mac OS, we want our base directory to be in our Syncthing folder ~/files/
+(when (eq system-type 'darwin)
+  (setq mw/basedir (expand-file-name "~/org/")))
+
+(when (eq system-type 'gnu/linux)
+  (setq mw/basedir (expand-file-name "~/files/org/")))
+
+;; Now lets go to the basedir!
+(when (eq system-type 'darwin)
+  (cd mw/basedir))
+
+(when (eq system-type 'darwin)
+  (setq mw/config-dir (expand-file-name "~/new_emacs/")))
+
+(when (eq system-type 'gnu/linux)
+  (setq mw/config-dir (expand-file-name "~/.emacs.d/")))
+
+;; Add .emacs.d to load path
+(add-to-list 'load-path mw/config-dir)
+
+;; Set directories off of the mw/config-dir
+(setq user-emacs-directory (expand-file-name ".cache/emacs" mw/config-dir)
+      url-history-file (expand-file-name "url/history" user-emacs-directory))
+
 
 ;; Keep customization settings in a temporary file
 (setq custom-file
@@ -98,117 +118,170 @@
 	(expand-file-name (format "emacs-custom-%s.el" (user-uid)) temporary-file-directory)))
 (load custom-file t)
 
-
 ;; ----------------------------------------
-;; Configure package management
+;; Package management
 ;; ----------------------------------------
 ;; Initialize package sources
 (require 'package)
 
+;; Identify package sources
 (setq package-archives '(("melpa" . "https://melpa.org/packages/")
-                         ("melpa-stable" . "https://stable.melpa.org/packages/")
-                         ("org" . "https://orgmode.org/elpa/")
-                         ("elpa" . "https://elpa.gnu.org/packages/")))
+			 ("melpa-stable" . "https://stable.melpa.org/packages/")
+			 ("org" . "https://orgmode.org/elpa/")
+			 ("elpa"  . "https://elpa.gnu.org/packages/")))
 
 (package-initialize)
 
-;; Refresh package archives (GNU Elpa)
 (unless package-archive-contents
   (package-refresh-contents))
 
 ;; Initialize use-package unless already installed
 (unless (package-installed-p 'use-package)
   (package-install 'use-package))
-
 (require 'use-package)
 
+;; For time profile
+(setq use-package-compute-statistics t)
 
 ;; ----------------------------------------
-;; Keep .emacs.d directory clean
+;; Setup trash
 ;; ----------------------------------------
-;; Set a base directory variable, and set it to nil to ensure we get an
-;;   error if we don't specifically define it by environment.
-(defvar mw/basedir nil
-  "The base directory for all emacs config")
-(defvar mw/orgdir nil
-  "The base directory for all org-mode files")
-
-;; On Mac OS, we want our base directory to be in our Syncthing folder ~/files/
 (when (eq system-type 'darwin)
-  (setq mw/basedir (expand-file-name "~/files/"))
-  (setq mw/orgdir (expand-file-name "~/files/"))
-  (cd mw/orgdir))
-
-(when (eq system-type 'gnu/linux)
-  (setq mw/basedir (expand-file-name "~/"))
-  (setq mw/orgdir (expand-file-name "~/files/"))
-  (cd mw/orgdir))
-
-;; Add .emacs.d to load path
-(add-to-list 'load-path (expand-file-name ".emacs.d" mw/basedir))
-
-;; Set directories off of the mw/basedir
-(setq user-emacs-directory (expand-file-name ".cache/emacs" mw/basedir)
-      user-package-directory (expand-file-name ".emacs/packages" mw/basedir)
-      url-history-file (expand-file-name "url/history" user-emacs-directory)
-      ;; Setup backups
-      backup-directory-alist '(("." . "~/.config/emacs/backups"))
-      delete-old-versions t
-      version-control t
-      vc-make-backup-files t
-      auto-save-file-name-transforms '((".*" "~/.config/emacs/auto-save-list/" t)))
-
-;; Keep customization settings in a temporary file
-(setq custom-file
-      (if (boundp 'server-socket-dir)
-	  (expand-file-name "custom.el" server-socket-dir)
-	(expand-file-name (format "emacs-custom-%s.el" (user-uid)) temporary-file-directory)))
-
+  (use-package osx-trash
+    :ensure t
+    :init (osx-trash-setup)))
+(setq delete-by-moving-to-trash t)
 
 ;; ----------------------------------------
-;; Configure modeline
+;; Fix appearance with font, theme, modeline, etc...
 ;; ----------------------------------------
-;; Let fix the time display
-(setq display-time-format "%l:%M %p %b %y"
-      display-time-default-load-average nil)
-
-;; Enable mode diminishing by hiding pesky minor modes
-(use-package diminish
+(use-package all-the-icons
   :ensure t)
 
-;; Turn on doom modeline and configure it
+(if (eq system-type 'darwin)
+    ;; Configure MacOS font
+    (set-face-attribute 'default nil
+			:font "FiraCode Nerd Font Mono"
+			:height 170)
+  ;; Configure otherwise
+  (set-face-attribute 'default nil
+		      :font "FiraMono Nerd Font:antialias=subpixel"
+		      :height 150))
+
+(use-package battery
+  :ensure nil 
+  :config
+  (setq display-battery-mode t))
+
+(use-package doom-themes
+  :ensure t
+  :config
+  ;; (load-theme 'doom-one t)
+  ;; (load-theme 'doom-palenight t)  
+  ;; (load-theme 'doom-city-lights t)
+  (load-theme 'doom-tokyo-night t)
+  (doom-themes-visual-bell-config)
+  )
+
 (use-package doom-modeline
   :ensure t
   :init
   (doom-modeline-mode 1)
   (if (eq system-type 'darwin)
       (custom-set-faces
-       '(mode-line ((t (:family "Fira Mono" :height 0.9))))
-       '(mode-line-inactive ((t (:family "Fira Mono" :height 0.9)))))
+       '(mode-line ((t (:family "FiraCode Nerd Font Mono" :height 1.0))))
+       '(mode-line-inactive ((t (:family "FiraCode Nerd Font Mono" :height 1.0)))))
     (custom-set-faces
      '(mode-line ((t (:family "FiraMono Nerd Font" :height 0.9))))
      '(mode-line-inactive ((t (:family "FiraMono Nerd Font" :height 0.9))))))
-    
   :custom
-  (setq doom-modeline-height 35)
-)
+  (doom-modeline-height 32)
+  )
 
+;; Add which-key
+(use-package which-key
+  :ensure t
+  :init (which-key-mode)
+  :diminish which-key-mode
+  :config
+  (which-key-setup-side-window-right)
+  (setq which-key-idle-delay 0.3)
+  ;; Configure a bunch of replacement key descriptions
+  ;; - https://gist.github.com/mmarshall540/a12f95ab25b1941244c759b1da24296d
+  (which-key-add-key-based-replacements
+    "C-c"           "mode-and-user"
+    "C-h 4"         "help-other-win"
+    "C-h"           "help"
+    "C-x 4"         "other-window"
+    "C-x 5"         "other-frame"
+    "C-x 6"         "2-column"
+    "C-x 8 '"       "´-ÁĆÉÍŃÓŚÚÝŹ"
+    "C-x 8 * SPC"   "nb-space"
+    "C-x 8 *"       "punct-curr"
+    "C-x 8 ,"       "„-‚-¸-ĄÇŅŞ"
+    "C-x 8 -"       "soft-hyphen"
+    "C-x 8 ."       "·-ż"
+    "C-x 8 /"       "÷-≠-ÅÆŁØ"
+    "C-x 8 1 /"     "½-¼"
+    "C-x 8 1"       "†-½-¼"
+    "C-x 8 2"       "‡"
+    "C-x 8 3 /"     "¾"
+    "C-x 8 3"       "¾"
+    "C-x 8 = /"     "Ǣ-ǣ"
+    "C-x 8 ="       "¯-ĀĒḠĪŌŪȲǢ"
+    "C-x 8 A"       "Æ"
+    "C-x 8 N"       "№"
+    "C-x 8 O"       "Œ-œ"
+    "C-x 8 SPC"     "nb-space"
+    "C-x 8 \""      "¨-ÄËÏÖẞÜÿ"
+    "C-x 8 ^ ^"     "caron"
+    "C-x 8 ^"       "sup-circ-caron"
+    "C-x 8 _ H"     "nb-hyphen"
+    "C-x 8 _ f"     "fig-dash"
+    "C-x 8 _ h"     "hyphen"
+    "C-x 8 _ m"     "em-dash"
+    "C-x 8 _ n"     "en-dash"
+    "C-x 8 _ q"     "horiz-bar"
+    "C-x 8 _ −"     "minus"
+    "C-x 8 _"       "sub-dash-≤≥ªº"
+    "C-x 8 `"       "ÀÈÌÒÙ"
+    "C-x 8 a"       "←-↔-→-æ"
+    "C-x 8 e"       "emoji"
+    "C-x 8 ~"       "≈-ÃÐÑÕÞ-¬"
+    "C-x 8"         "insert-special"
+    "C-x C-k C-q"   "kmacro-counters"
+    "C-x C-k C-r a" "kmacro-add"
+    "C-x C-k C-r"   "kmacro-register"
+    "C-x C-k"       "keyboard-macros"
+    "C-x RET"       "encoding/input"
+    "C-x a i"       "abbrevs-inverse-add"
+    "C-x a"         "abbrevs"
+    "C-x n"         "narrowing"
+    "C-x p"         "projects"
+    "C-x r"         "reg/rect/bkmks"
+    "C-x t ^"       "tab-bar-detach"
+    "C-x t"         "tab-bar"
+    "C-x v M"       "vc-mergebase"
+    "C-x v b"       "vc-branch"
+    "C-x v"         "version-control"
+    "C-x w ^"       "window-detach"
+    "C-x w"         "window-extras"
+    "C-x x"         "buffer-extras"
+    "C-x"           "extra-commands"
+    "M-g"           "goto-map"
+    "M-s h"         "search-highlight"
+    "M-s"           "search-map")
+  (when (version<= "31" emacs-version)
+    (which-key-add-key-based-replacements
+      "C-x p C-x" "projects-extra"
+      "C-x w f"   "window-layout-flip"
+      "C-x w o"   "rotate-windows"
+      "C-x w r"   "window-layout-rotate"))
+  )
 
 ;; ----------------------------------------
-;; Configure fonts and themes
+;; Fix the Huge Monitor vs. Tiny Window issue
 ;; ----------------------------------------
-;; Set the font based on platform 
-(if (eq system-type 'darwin)
-    ;; Configure MacOS Font 
-    (set-face-attribute 'default nil
-			:font "Fira Mono"
-			:height 190)
-  ;; Configure otherwise
-  (set-face-attribute 'default nil
-		      :font "FiraMono Nerd Font:antialias=subpixel"
-		      :height 150))
-
-;; Let's make the window a decent size if we're on high resolution
 ;; This must be done after fonts are configured so that the
 ;; value of 'frame-char-height' is correct.
 (defun set-frame-size-according-to-resolution ()
@@ -217,404 +290,211 @@
       (progn
 	;; Go for a 160 wide window if we have enough space on the display
 	(if (> (x-display-pixel-width) 1280)
-	    (add-to-list 'default-frame-alist (cons 'width 160))
+	    (add-to-list 'default-frame-alist (cons 'width 140))
 	  (add-to-list 'default-frame-alist (cons 'width 80)))
 	;; For height, subtract a bit off the screen height
 	;; and go with that
 	(let ((monheight (nth 4 (assq 'workarea (car (display-monitor-attributes-list)))))
 	      (monwidth (nth 3 (assq 'workarea (car (display-monitor-attributes-list))))))
 	  (add-to-list 'default-frame-alist
-		       (cons 'height (/ (- monheight 200)
+		       (cons 'height (/ (- monheight 150)
 					(frame-char-height))))
 	  (add-to-list 'default-frame-alist
-		       (cons 'top 100))
+		       (cons 'top 75))
 	  (message "monheight %d" monheight)
-	  (message "subtract %d" (- monheight 200))
+	  (message "subtract %d" (- monheight 150))
 	  (message "frame-char-height %d" (frame-char-height))
-	  (message "height %d" (/ (- monheight 200)
+	  (message "height %d" (/ (- monheight 150)
 				  (frame-char-height))))
 	)))
 
 (set-frame-size-according-to-resolution)
 
-;; Use the Pale Night theme from Doom themes, and turn on the doom visual bar
-(use-package doom-themes
-  :ensure t
-  :config
-  (setq doom-themes-enable-bold t
-	doom-themes-enable-italic t)
-  ;;  (load-theme 'doom-palenight t)
-  (load-theme 'doom-tokyo-night t)
-  (doom-themes-visual-bell-config)
-  (doom-themes-org-config)
-)
 
 ;; ----------------------------------------
-;; Configure spell checking
+;; Figure out completion system
 ;; ----------------------------------------
-;; We want spell checking for all text files and for all comments and such
-;; when programming
-(defun flyspell-on-for-buffer-type ()
-  "Enable flyspell appropriately for the major mode of the current buffer. Uses `flyspell-prog-mode` for modes derived from `prog-mode`, so only string and comments get checked. All other buffers use normal flyspell mode"
-  (interactive)
-  (if (not (symbol-value flyspell-mode)) ; if not already on
-      (progn
-	(if (derived-mode-p 'prog-mode)
-	    (progn
-	      (message "Flyspell on (code)")
-	      (flyspell-prog-mode))
-	  ;; else
-	  (progn
-	    (message "Flyspell on (text)")
-	    (flyspell-mode 1)))
-	)))
 
-(defun flyspell-toggle ()
-  "Turn Flyspell on if it's off, or off if it's on. Use above function so that it's programmatically set correctly"
-  (interactive)
-  (if (symbol-value flyspell-mode)
-      (progn ; flyspell is on, turn it off
-	(message "Flyspell off")
-	(flyspell-mode -1))
-    ;; else - Flyspell is off, turn it on
-    (flyspell-on-for-buffer-type)))
-
-;; Bind `flyspell-toggle` to a key
-(global-set-key (kbd "C-c f") 'flyspell-toggle)
-
-;; Now make sure that every new file attempts to have spell checking enabled
-(add-hook 'find-file-hook 'flyspell-on-for-buffer-type)
-
-;; ----------------------------------------
-;; Configure competions
-;; ----------------------------------------
-;; References:
-;; - https://github.com/jwiegley/dot-emacs/blob/master/init.org#completions
 (use-package vertico
   :ensure t
+  :custom
+  (vertico-cycle t)
+  :bind (:map vertico-map
+	      ("<escape>" . minibuffer-keyboard-quit))
   :init
-
-  (use-package orderless
-    :ensure t
-    :commands (orderless)
-    :custom (completion-styles '(orderless flex)))
-
-  (use-package marginalia
-    :ensure t
-    :bind (:map minibuffer-local-map
-           ("M-A" . marginalia-cycle))
-    :custom
-    (marginalia-annotators
-     '(marginalia-annotators-heavy marginalia-annotators-light nil))
-    :init
-    (marginalia-mode))
-
-  (vertico-mode t)
-
+  (vertico-mode)
   :config
-  ;; Do not allow the cursor in the minibuffer prompt
-;;  (setq minibuffer-prompt-properties
-;;	'(read-only t cursor-intangible t face minibuffer-prompt))
-;;  (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
-  ;; Enable recursive minibuffers
   (setq enable-recursive-minibuffers t))
 
-(use-package vertico-directory
-  :ensure nil    ; Don't need to ensure as it comes with vertico
+;; Persist history over Emacs restarts. Vertico sorts by history position
+(use-package savehist
+  :init
+  (savehist-mode))
+
+;; Orderless for minibuffer completion assistance
+(use-package orderless
+  :ensure t
+  :custom
+  (completion-styles '(orderless flex))
+  (completion-category-overrides '((file (styles basic partial-completion)))))
+
+(use-package marginalia
   :after vertico
-  ;; More convenient directory navigation commands
+  :ensure t
+  :custom
+  (marginalia-annotators '(marginalia annotators-heavy marginalia-annotators-light nil))
+  (marginalia-align 'right)
+  :init
+  (marginalia-mode))
+
+(use-package consult
+  :ensure t
+  :bind (;; C-c bindings in `mode-specific-map'
+         ("C-c M-x" . consult-mode-command)
+         ("C-c h" . consult-history)
+         ("C-c k" . consult-kmacro)
+         ("C-c m" . consult-man)
+         ("C-c i" . consult-info)
+         ([remap Info-search] . consult-info)
+         ;; C-x bindings in `ctl-x-map'
+         ("C-x M-:" . consult-complex-command)     ;; orig. repeat-complex-command
+         ("C-x b" . consult-buffer)                ;; orig. switch-to-buffer
+         ("C-x 4 b" . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+         ("C-x 5 b" . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
+         ("C-x t b" . consult-buffer-other-tab)    ;; orig. switch-to-buffer-other-tab
+         ("C-x r b" . consult-bookmark)            ;; orig. bookmark-jump
+         ("C-x p b" . consult-project-buffer)      ;; orig. project-switch-to-buffer
+         ;; Custom M-# bindings for fast register access
+         ("M-#" . consult-register-load)
+         ("M-'" . consult-register-store)          ;; orig. abbrev-prefix-mark (unrelated)
+         ("C-M-#" . consult-register)
+         ;; Other custom bindings
+         ("M-y" . consult-yank-pop)                ;; orig. yank-pop
+         ;; M-g bindings in `goto-map'
+         ("M-g e" . consult-compile-error)
+         ("M-g f" . consult-flymake)               ;; Alternative: consult-flycheck
+         ("M-g g" . consult-goto-line)             ;; orig. goto-line
+         ("M-g M-g" . consult-goto-line)           ;; orig. goto-line
+         ("M-g o" . consult-outline)               ;; Alternative: consult-org-heading
+         ("M-g m" . consult-mark)
+         ("M-g k" . consult-global-mark)
+         ("M-g i" . consult-imenu)
+         ("M-g I" . consult-imenu-multi)
+         ;; M-s bindings in `search-map'
+         ("M-s d" . consult-find)                  ;; Alternative: consult-fd
+         ("M-s c" . consult-locate)
+         ("M-s g" . consult-grep)
+         ("M-s G" . consult-git-grep)
+         ("M-s r" . consult-ripgrep)
+         ("M-s l" . consult-line)
+         ("M-s L" . consult-line-multi)
+         ("M-s k" . consult-keep-lines)
+         ("M-s u" . consult-focus-lines)
+         ;; Isearch integration
+         ("M-s e" . consult-isearch-history)
+         :map isearch-mode-map
+         ("M-e" . consult-isearch-history)         ;; orig. isearch-edit-string
+         ("M-s e" . consult-isearch-history)       ;; orig. isearch-edit-string
+         ("M-s l" . consult-line)                  ;; needed by consult-line to detect isearch
+         ("M-s L" . consult-line-multi)            ;; needed by consult-line to detect isearch
+         ;; Minibuffer history
+         :map minibuffer-local-map
+         ("M-s" . consult-history)                 ;; orig. next-matching-history-element
+         ("M-r" . consult-history))                ;; orig. previous-matching-history-element
+  :hook (completion-list-mode . consult-preview-at-point-mode)
+  :init
+  (advice-add #'register-preview :override #'consult-register-window)
+  (setq register-preview-delay 0.5)
+  (setq xref-show-xrefs-function #'consult-xref
+	xref-show-definitions-function #'consult-xref)
+  :config
+  (consult-customize
+   consult-theme :preview-key '(:debounce 0.2 any)
+   consult-ripgrep consult-git-grep consult-grep consult-man
+   consult-bookmark consult-recent-file consult-xref
+   consult--source-bookmark consult--source-file-register
+   consult--source-recent-file consult--source-project-recent-file
+   ;; :preview-key "M-."
+   :preview-key '(:debounce 0.4 any))
+
+  (setq consult-narrow-key "<"))
+
+(use-package embark
+  :ensure t
+  :bind
+  (("C-." . embark-act)
+   ("C-;" . embark-dwim)
+   ("C-h B" . embark-bindings))
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command)
+  :config
+  ;; Hide the modeline of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none))))
+  )
+
+(use-package embark-consult
+  :ensure t
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode))
+
+(use-package vertico-directory
+  :ensure nil
+  :after vertico
   :bind (:map vertico-map
 	      ("RET" . vertico-directory-enter)
-	      ("DEL" . vertico-directory-delete-char) ; more like ido
-	      ("C-DEL" . vertico-directory-delete-char))
-  ;; Tidy shadowed file names
-  :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
+	      ("DEL" . vertico-directory-delete-char)
+	      ("C-DEL" . vertico-directory-delete-word))
+  :hook (rfn-eshadow-update-overlay . verico-directory-tidy))
 
-
-
-;; (use-package corfu
-;;   :ensure t
-;;   :custom
-;;   (corfu-cycle t)                      ; Allows cycling through candidates
-;;   (corfu-auto t)                       ; Enable auto completion
-;;   (corfu-auto-prefix 2)                ; Enable auto completion
-;;   (corfu-auto-delay 0.2)               ; Enable auto completion
-;;   (corfu-popupinfo-delay '(0.5 . 0.2))
-;;   (corfu-quit-at-boundary 'separator)
-;;   (corfu-preview-current 'insert)      ; Do not preview current candidate
-;;   (corfu-preselect-first nil)
-
-;;   :bind (:map corfu-map
-;;          ("M-SPC"      . corfu-insert-separator)
-;;          ;; ("RET"        . nil)
-;;          ;; ("<escape>"   . corfu-quit)
-;;          ;; ("S-<return>" . corfu-insert)
-;;          ;; ("TAB"        . corfu-next)
-;;          ;; ([tab]        . corfu-next)
-;;          ;; ("S-TAB"      . corfu-prevous)
-;; 	 ;; ([backtab]    . corfu-previous)
-;; 	 )
-
-;;   :init
-;;   (global-corfu-mode)
-;;   (corfu-history-mode)
-;;   (corfu-popupinfo-mode)
-
-;;   :config
-;;   (add-hook 'eshell-mode-hook
-;; 	    (lambda () (setq-local corfu-quit-at-boundary t
-;; 				   corfu-quit-no-match t
-;; 				   corfu-auto nil)
-;; 	      (corfu-mode))))
-
-;; ----------------------------------------
-;; Attempt to sort out Markdown mode
-;; ----------------------------------------
-(defun mw/markdown-config ()
-  (visual-line-mode 1))
-
-(use-package markdown-mode
+(use-package all-the-icons-completion
   :ensure t
-  :hook (markdown-mode . mw/markdown-config)
-  :commands (markdown-mode gfm-mode)
-  :mode (("README\\.md\\'" . gfm-mode)
-	 ("\\.md\\'" . markdown-mode)
-	 ("\\.markdown\\'" . markdown-mode)))
-
-;; ----------------------------------------
-;; Show keybindings after a pause
-;; ----------------------------------------
-(use-package which-key
-  :ensure t
-  :init (which-key-mode)
-  :diminish which-key-mode
-  :config
-  (setq which-key-idle-delay 0.3))
-
-;; ----------------------------------------
-;; Configure PDF Editing / Creation
-;; ----------------------------------------
-;;
-(use-package pdf-tools
-  :ensure t
-  :mode  ("\\.pdf\\'" . pdf-view-mode)
-  :config
-  (setq-default pdf-view-display-size 'fit-page)
-  (setq pdf-annot-activate-created-annotations t)
-  (pdf-tools-install :no-query)
-  (require 'pdf-occur))
-
-;; ----------------------------------------
-;; Configure Org-Roam 
-;; ----------------------------------------
-(use-package org-roam
-  :ensure t
+  :after (marginalia all-the-icons)
+  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
   :init
-  (setq org-roam-v2-ack t)
+  (all-the-icons-completion-mode))
+
+(use-package flyspell
+  :ensure t
+  :defer 1
+  :bind (:map flyspell-mode-map ("C-:" . flyspell-buffer))
+  :custom-face
+  (flyspell-incorrect ((t (:underline (:color "red" :style wave :position nil)))))
+  :hook
+  (text-mode . flyspell-mode)
+  (prog-mode . flyspell-prog-mode)
   :custom
-  (org-roam-directory (expand-file-name "org_roam" mw/orgdir))
-  (org-roam-dailies-directory "journal/")
-  :bind (("C-c n l" . org-roam-buffer-toggle)
-	 ("C-c n f" . org-roam-node-find)
-	 ("C-c n i" . org-roam-node-insert)
- 	 :map org-roam-dailies-map
-	 ("Y" . org-roam-dailies-capture-yesterday)
-	 ("T" . org-roam-dailies-capture-tomorrow)
-  	 ("d" . mw/goto-todays-daily))
+  (flyspell-abbrev-p t))
 
-  :bind-keymap
-  ("C-c n d" . org-roam-dailies-map)
-  :init
-  ;; Define dailies filename and header
-  (setq mw/daily-note-filename "%<%Y-%m-%d>.org"
-	mw/daily-note-header "#+title: %<%Y-%m-%d>\n#+filetags: Journal\n\n[[roam:%<%Y-%B>]]\n\nToday is a %<%A> and is day %<%j> of %<%Y>\n\n"
-	mw/accomplishment-note-filename "Accomplishments-%<%Y>.org"
-	mw/accomplishment-note-header "#+title: %<%Y> Accomplishments\n#+filetags: accomplishments\n\n")
-  :config
-  (require 'org-roam-dailies) ;; ensure keymap is available
-  (setq org-roam-completion-everywhere t)
-  (org-roam-db-autosync-mode)
-  ;; Define goto today with a default capture template
-  (defun mw/goto-todays-daily ()
-    "Goto today's daily note using the default template file name."
-    (interactive)
-    (org-roam-dailies-goto-today "d"))
-  ;; Define org-roam daily templates
-  (setq org-roam-dailies-capture-templates
-	`(("d" "default" entry
-	   "* %?"
-	   :if-new (file+head ,mw/daily-note-filename
-			      ,mw/daily-note-header)
-	   :empty-lines-before 1)
-	  ("l" "log entry" entry
-	   "* %<%H:%M> - %?"
-	   :if-new (file+head+olp ,mw/daily-note-filename
-				  ,mw/daily-note-header
-				  ("Log"))
-	   :empty-lines-before 1)
-	  ("j" "journal" entry
-	   "* %<%H:%M> - Journal  :journal:\n\n%?\n\n"
-	   :if-new (file+head+olp ,mw/daily-note-filename
-				  ,mw/daily-note-header
-				  ("Journal"))
-	   :empty-lines-before 1)
-	  ("m" "meeting" entry
-	   "* %<%H:%M> - %^{Meeting Title} (%<%d-%b-%Y>) :meetings:\n\n%?\n\n"
-	   :if-new (file+head+olp ,mw/daily-note-filename
-				  ,mw/daily-note-header
-				  ("Meetings"))
-	   :empty-lines-before 1)
-	  ("a" "accomplishment" entry
-	   "* %<%B %e> - %^{Accomplishment Description}\n\n%?\n\n"
-	   :if-new (file+head ,mw/accomplishment-note-filename
-			      ,mw/accomplishment-note-header)
-	   :empty-lines-before 1
-	   :prepend t)
-
-	  ))
-
-  )
-
-;; ----------------------------------------
-;; Configure Org Mode
-;; ----------------------------------------
-(defun mw/org-mode-setup ()
-  (org-indent-mode)
-  ;;  (variable-pitch-mode 1)
-  ;;  (auto-fill-mode 0)
-  ;; (linum-mode -1)
-  (visual-line-mode 1)
-  (diminish org-indent-mode)
-  (abbrev-mode 1))
-
-(use-package org
+(use-package flyspell-correct
   :ensure t
-  :defer t
-  :hook (org-mode . mw/org-mode-setup)
-  :init
-  ;; Configure base directory and agenda files
-  (setq org-directory (expand-file-name "org_files/" mw/orgdir))
-  (setq org-default-notes-file (expand-file-name "refile.org" org-directory))
-  (setq org-agenda-files (list org-default-notes-file
-			       (expand-file-name "work/" org-directory)
-			       (expand-file-name "work/notes/" org-directory)
-			       (expand-file-name "personal/" org-directory)))
-  (setq org-src-fontify-natively t)
-  ;; Lets setup our basic keybindings
-  (global-set-key (kbd "C-c c") 'org-capture)
-  (global-set-key (kbd "C-c l") 'org-store-link)
-  (global-set-key (kbd "C-c o")
-		  (lambda () (interactive) (find-file org-default-notes-file)))
-  (global-set-key (kbd "<f11>") 'org-clock-goto)
-  (global-set-key (kbd "<f12>") 'org-agenda)
+  :after flyspell
+  :bind (:map flyspell-mode-map ("C-;" . flyspell-correct-wrapper)))
+
+(use-package abbrev
+  :defer 1
+  :custom
+  (abbrev-file-name (expand-file-name ".abbrev_defs" mw/config-dir))
+  (abbrev-mode 1)
   :config
-  (require 'mw-org)
-  (use-package org-superstar
-    :ensure t
-    :after org
-    :hook (org-mode . org-superstar-mode)
-    :custom
-    (org-superstar-remove-leading-stars t)
-    (org-superstar-headline-hullets-list '("◉" "○" "●" "○" "●" "○" "●")))
+  (if (file-exists-p abbrev-file-name)
+      (quietly-read-abbrev-file)))
 
-  (if (eq system-type 'darwin)
-      ;; For MacOS
-      (set-face-attribute 'org-document-title nil
-			  :font "Fira Mono"
-			  :weight 'bold
-			  :height 1.3)
-    ;; Else
-    (set-face-attribute 'org-document-title nil
-			:font "FiraMono Nerd Font"
-			:weight 'bold
-			:height 1.3))
-  (dolist (face '((org-level-1 . 1.2)
-		  (org-level-2 . 1.1)
-		  (org-level-3 . 1.05)
-		  (org-level-4 . 1.0)
-		  (org-level-5 . 1.1)
-		  (org-level-6 . 1.1)
-		  (org-level-7 . 1.1)
-		  (org-level-8 . 1.1)))
-    (if (eq system-type 'darwin)
-	(set-face-attribute (car face) nil
-			    :font "Fira Mono"
-			    :weight 'medium :height (cdr face))
-      	(set-face-attribute (car face) nil
-			    :font "FiraMono Nerd Font"
-			    :weight 'medium :height (cdr face))))
-  ;;(require 'org-indent)
-  (set-face-underline 'org-ellipsis nil)
-  ;; This ends the use-package org-mode block
-  )
 
-;; ----------------------------------------
-;; Define function to copy org-mode contents to a clipboard in markdown mode
-;; ----------------------------------------
-(defun mw/org-md-to-clipboard ()
+(require 'org-config)
+
+;; Sort out some custom functions
+(defun mw/delete-current-file ()
+  "Move the file current buffer is visiting to trash.
+It also kills the current buffer."
   (interactive)
-  (save-window-excursion
-    (let ((org-export-with-toc nil))
-      (let ((buf (org-export-to-buffer 'md "*tmp*" nil nil t t)))
-	(save-excursion
-	  (set-buffer buf)
-	  (clipboard-kill-region (point-min) (point-max))
-	  (kill-buffer-and-window)
-	  )))))
-
-;; ----------------------------------------
-;; Configure Ox-Hugo
-;; ----------------------------------------
-;;  - This depends on org mode and allows Hugo blog authoring
-(use-package ox-hugo
-  :ensure t     ;; auto-install package form Melpa
-  :pin melpa    ;; want to ensure we install form Melpa
-  :after ox)
-
-;; ----------------------------------------
-;; For the love of everything, do your best to never split my window vertically
-;; ----------------------------------------
-
-;; https://lists.gnu.org/archive/html/help-gnu-emacs/2015-08/msg00339.html
-;; (with-eval-after-load "window"
-;;   (defcustom split-window-below nil
-;;     "If non-nil, vertical splits produce new windows below."
-;;     :group 'windows
-;;     :type 'boolean)
-
-;;   (defcustom split-window-right nil
-;;     "If non-nil, horizontal splits produce new windows to the right."
-;;     :group 'windows
-;;     :type 'boolean)
-
-;;   (fmakunbound #'split-window-sensibly)
-
-;;   (defun split-window-sensibly
-;;       (&optional window)
-;;     (setq window (or window (selected-window)))
-;;     (or (and (window-splittable-p window t)
-;;              ;; Split window horizontally.
-;;              (split-window window nil (if split-window-right 'left  'right)))
-;;         (and (window-splittable-p window)
-;;              ;; Split window vertically.
-;;              (split-window window nil (if split-window-below 'above 'below)))
-;;         (and (eq window (frame-root-window (window-frame window)))
-;;              (not (window-minibuffer-p window))
-;;              ;; If WINDOW is the only window on its frame and is not the
-;;              ;; minibuffer window, try to split it horizontally disregarding the
-;;              ;; value of `split-width-threshold'.
-;;              (let ((split-width-threshold 0))
-;;                (when (window-splittable-p window t)
-;;                  (split-window window nil (if split-window-right
-;;                                               'left
-;;                                             'right))))))))
-
-;; (setq-default split-height-threshold  4
-;;               split-width-threshold   120) ; the reasonable limit for horizontal splits
-
-(use-package nix-mode
-  :ensure t
-  :mode "\\.nix\\'")
+  ;; Ensure `delete-by-moving-to-trash` is non-nil so that `delete-file`
+  ;; moves the file to the trash even if the customization is incorrect.
+  (let ((delete-by-moving-to-trash t))
+    (delete-file (buffer-file-name) t)
+    (kill-current-buffer)))
 
 (provide 'init)
 ;;; init.el ends here
